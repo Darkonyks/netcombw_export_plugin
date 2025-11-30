@@ -1,0 +1,104 @@
+ART_Sonstige -> ART KOPIRANJE
+==============================
+
+DATUM: 2025-11-28
+
+PROBLEM:
+--------
+
+U BAUTEN sloju, kada je ART = 'Sonstiges', prava vrednost tipa objekta
+je sačuvana u polju 'ART_Sonstige'. Pre exporta, ovu vrednost treba
+kopirati u polje 'ART' kako bi exportovani Shapefile imao pravu vrednost.
+
+REŠENJE:
+--------
+
+Kreiranje privremenog memory layer-a sa modifikovanim vrednostima:
+
+1. Primeni filter: ART = 'Sonstiges' AND job_id = {job_id}
+2. Kreiraj prazan memory layer sa istom geometrijom i CRS
+3. Kopiraj sva polja iz originalnog sloja
+4. Za svaki feature:
+   - Kopiraj sve atribute
+   - Zameni vrednost ART polja sa vrednošću iz ART_Sonstige
+5. Exportuj memory layer u Shapefile
+6. Memory layer se automatski briše nakon exporta
+
+PRIMER:
+-------
+
+Original feature u PostgreSQL:
+- ART: 'Sonstiges'
+- ART_Sonstige: 'Kabelschacht'
+- job_id: 12345
+
+Exportovani feature u Shapefile:
+- ART: 'Kabelschacht'  <-- Zamenjena vrednost!
+- ART_Sonstige: 'Kabelschacht'
+- job_id: 12345
+
+KOD LOGIKA:
+-----------
+
+```python
+# Kreiraj memory layer
+geom_type = QgsWkbTypes.displayString(target_layer.wkbType())
+memory_layer = QgsVectorLayer(
+    f"{geom_type}?crs={target_layer.crs().authid()}",
+    "temp_bauten_sonstige",
+    "memory"
+)
+
+# Dodaj polja
+memory_provider.addAttributes(target_layer.fields())
+memory_layer.updateFields()
+
+# Kopiraj feature-e sa modifikacijom
+for feature in target_layer.getFeatures():
+    new_feature = QgsFeature(feature)
+    
+    # Zameni ART sa ART_Sonstige
+    art_sonstige_value = feature['ART_Sonstige']
+    if art_sonstige_value:
+        new_feature.setAttribute(art_idx, art_sonstige_value)
+    
+    new_features.append(new_feature)
+
+# Exportuj
+QgsVectorFileWriter.writeAsVectorFormat(
+    memory_layer, output_file, 'UTF-8', 
+    memory_layer.crs(), 'ESRI Shapefile'
+)
+```
+
+PREDNOSTI:
+----------
+
+✓ Ne menja originalni PostgreSQL sloj
+✓ Modifikacija se vrši samo u memoriji
+✓ Memory layer se automatski briše nakon exporta
+✓ Nema potrebe za commit/rollback operacijama
+✓ Brzo i efikasno
+
+NAPOMENE:
+---------
+
+- Originalni PostgreSQL sloj ostaje netaknut
+- Modifikacija se primenjuje samo na exportovani Shapefile
+- Ako ART_Sonstige je NULL ili prazan, ART ostaje 'Sonstiges'
+- Memory layer se kreira samo za Sonstiges feature-e
+- OTHER feature-i se exportuju direktno bez memory layer-a
+
+TESTIRANJE:
+-----------
+
+1. Kreiraj feature u BAUTEN sa:
+   - ART = 'Sonstiges'
+   - ART_Sonstige = 'TestVrednost'
+   - job_id = 123
+
+2. Exportuj plugin-om
+
+3. Otvori BAUTEN_Sonstiges_job_123.shp
+
+4. Proveri da je ART = 'TestVrednost' (ne 'Sonstiges')

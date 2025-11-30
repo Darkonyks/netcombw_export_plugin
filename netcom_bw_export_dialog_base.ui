@@ -1,0 +1,67 @@
+<ui version="4.0" >
+ <class>netcom_bw_exportDialogBase</class>
+ <widget class="QDialog" name="netcom_bw_exportDialogBase" >
+  <property name="geometry" >
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>180</height>
+   </rect>
+  </property>
+  <property name="windowTitle" >
+   <string>NetCom BW Export</string>
+  </property>
+  <widget class="QLabel" name="label_job_id" >
+   <property name="geometry" >
+    <rect>
+     <x>30</x>
+     <y>30</y>
+     <width>341</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <property name="text" >
+    <string>Select Job:</string>
+   </property>
+   <property name="font" >
+    <font>
+     <pointsize>10</pointsize>
+    </font>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="comboBox_job" >
+   <property name="geometry" >
+    <rect>
+     <x>30</x>
+     <y>60</y>
+     <width>341</width>
+     <height>30</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="button_export" >
+   <property name="geometry" >
+    <rect>
+     <x>30</x>
+     <y>110</y>
+     <width>341</width>
+     <height>35</height>
+    </rect>
+   </property>
+   <property name="text" >
+    <string>Export</string>
+   </property>
+   <property name="font" >
+    <font>
+     <pointsize>10</pointsize>
+     <weight>75</weight>
+     <bold>true</bold>
+    </font>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+
+</ui>

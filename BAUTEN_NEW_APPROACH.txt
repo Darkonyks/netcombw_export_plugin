@@ -1,0 +1,26 @@
+NOVI PRISTUP ZA BAUTEN EXPORT
+==============================
+
+Problem: Ne možemo da filtriramo po ART polju jer ne znamo ID vrednost za 'Sonstiges'
+
+Rešenje: Učitaj SVE feature-e sa job_id filterom, zatim ih podeli u petlji
+
+Pseudokod:
+----------
+
+1. Postavi filter: "job_id" = X
+2. Kreiraj 2 prazna memory layer-a (Sonstiges i OTHER)
+3. Za svaki feature:
+   a. Konvertuj display values
+   b. Proveri display vrednost ART polja
+   c. Ako je 'Sonstiges':
+      - Modifikuj ART = ART_Sonstige
+      - Dodaj u Sonstiges layer
+   d. Inače:
+      - Dodaj u OTHER layer
+4. Exportuj oba layer-a (ako nisu prazni)
+
+Prednosti:
+- Ne zavisi od ID vrednosti
+- Radi sa display values direktno
+- Jednostavnije za održavanje

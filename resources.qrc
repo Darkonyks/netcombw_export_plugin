@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/netcom_bw_export" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>

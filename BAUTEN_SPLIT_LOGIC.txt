@@ -1,0 +1,140 @@
+BAUTEN SLOJ - SPLIT PO ART POLJU
+=================================
+
+DATUM: 2025-11-28
+AŽURIRANO: 2025-11-28 (ART = 'Sonstiges')
+
+SPECIJALNA LOGIKA ZA BAUTEN:
+-----------------------------
+
+BAUTEN sloj ima specijalnu logiku koja proverava polje "ART" i kreira 
+ODVOJENE Shapefile-ove ako postoje feature-i sa vrednošću ART = 'Sonstiges'.
+
+VAŽNO: Pre exporta feature-a sa ART = 'Sonstiges', vrednost iz polja 
+'ART_Sonstige' se kopira u polje 'ART' u exportovanom Shapefile-u.
+
+USLOVI:
+-------
+
+1. Ako postoje feature-i sa ART = 'Sonstiges':
+   - Kreira se: BAUTEN_Sonstiges_job_{job_id}.shp
+   - Sadrži: Samo feature-e gde je ART = 'Sonstiges'
+
+2. Ako postoje feature-i sa ART != 'Sonstiges':
+   - Kreira se: BAUTEN_OTHER_job_{job_id}.shp
+   - Sadrži: Sve feature-e gde je ART različito od 'Sonstiges'
+
+3. Oba fajla se kreiraju NEZAVISNO ako oba uslova postoje
+
+IMPLEMENTACIJA:
+---------------
+
+export_bauten_layer() metoda:
+
+1. Primenjuje filter: "job_id" = {job_id}
+2. Proverava ukupan broj feature-a
+3. Proverava broj feature-a sa ART = 'Sonstiges'
+4. Proverava broj feature-a sa ART != 'Sonstiges'
+5. Za ART = 'Sonstiges':
+   a. Kreira privremeni memory layer
+   b. Kopira sve feature-e
+   c. Za svaki feature: ART = ART_Sonstige (zamena vrednosti)
+   d. Exportuje modifikovani memory layer
+6. Za ART != 'Sonstiges':
+   - Exportuje direktno bez modifikacije
+7. Vraća multi_results ako su kreirani oba fajla
+
+REZULTATI:
+----------
+
+Scenario 1: Samo ART = 'Sonstiges' postoji
+{
+    'layer': 'BAUTEN (Sonstiges)',
+    'count': 15,
+    'file': '/path/BAUTEN_Sonstiges_job_12345.shp',
+    'success': True
+}
+
+Scenario 2: Samo ART != 'Sonstiges' postoji
+{
+    'layer': 'BAUTEN (OTHER)',
+    'count': 23,
+    'file': '/path/BAUTEN_OTHER_job_12345.shp',
+    'success': True
+}
+
+Scenario 3: Oba postoje (multi_results)
+{
+    'layer': 'BAUTEN',
+    'multi_results': [
+        {
+            'layer': 'BAUTEN (Sonstiges)',
+            'count': 15,
+            'file': '/path/BAUTEN_Sonstiges_job_12345.shp',
+            'success': True
+        },
+        {
+            'layer': 'BAUTEN (OTHER)',
+            'count': 23,
+            'file': '/path/BAUTEN_OTHER_job_12345.shp',
+            'success': True
+        }
+    ],
+    'success': True
+}
+
+SUMMARY DIALOG:
+---------------
+
+Ako su kreirani oba fajla, summary dialog prikazuje:
+
+✓ BAUTEN (Sonstiges): 15 features → BAUTEN_Sonstiges_job_12345.shp
+✓ BAUTEN (OTHER): 23 features → BAUTEN_OTHER_job_12345.shp
+
+OUTPUT FAJLOVI:
+---------------
+
+Primer za job_id = 12345:
+
+Ako ima ART = 'Sonstiges':
+- BAUTEN_Sonstiges_job_12345.shp (+ .shx, .dbf, .prj, .cpg)
+
+Ako ima ART != 'Sonstiges':
+- BAUTEN_OTHER_job_12345.shp (+ .shx, .dbf, .prj, .cpg)
+
+SQL FILTERI:
+------------
+
+PostgreSQL filter (za setSubsetString):
+"job_id" = {job_id} AND "ART" = 'Sonstiges'
+"job_id" = {job_id} AND "ART" != 'Sonstiges'
+
+QGIS Expression filter (za QgsFeatureRequest):
+job_id = {job_id} AND ART = 'Sonstiges'
+job_id = {job_id} AND ART != 'Sonstiges'
+
+NAPOMENA: PostgreSQL koristi duple navodnike za nazive polja ("job_id"),
+dok QGIS expression ne koristi navodnike ili koristi jednostruke navodnike.
+
+NAPOMENE:
+---------
+
+- Oba fajla se kreiraju SAMO ako postoje odgovarajući feature-i
+- Ako nema nijednog feature-a sa job_id, vraća se no_data
+- Svaki export je nezavisan i ima svoj error handling
+- run() metoda koristi extend() za multi_results da bi dodala oba rezultata
+
+TESTIRANJE:
+-----------
+
+Test 1: BAUTEN sloj sa ART = 'Sonstiges' i ART != 'Sonstiges'
+- Očekivano: 2 shapefile-a, oba prikazana u summary
+
+Test 2: BAUTEN sloj samo sa ART = 'Sonstiges'
+- Očekivano: 1 shapefile (BAUTEN_Sonstiges_job_X.shp)
+
+Test 3: BAUTEN sloj samo sa ART != 'Sonstiges'
+- Očekivano: 1 shapefile (BAUTEN_OTHER_job_X.shp)
+
+Test 4: BAUTEN sloj bez feature-a za job_id
+- Očekivano: no_data poruka

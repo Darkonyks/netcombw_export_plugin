@@ -1,0 +1,146 @@
+DISPLAY VALUES - KONVERZIJA ID U TEKST
+========================================
+
+DATUM: 2025-11-28
+
+PROBLEM:
+--------
+
+U PostgreSQL bazi, mnoga polja koriste **Value Relations** (lookup tabele)
+gde se čuva samo ID vrednost, a prikazuje se human-readable tekst.
+
+Primer:
+- U bazi: ART = 123 (ID)
+- U QGIS-u: ART = "Kabelschacht" (display value)
+
+Prilikom exporta u Shapefile, standardno se exportuje samo ID vrednost,
+što nije korisno za krajnjeg korisnika.
+
+REŠENJE:
+--------
+
+Implementirana je automatska konverzija svih polja sa Value Relations
+u njihove display vrednosti PRE exporta u Shapefile.
+
+KAKO RADI:
+----------
+
+1. Za svako polje u sloju, proverava se editor widget tip
+2. Ako je tip "ValueRelation":
+   - Učitava se konfiguracija (Layer, Key, Value)
+   - Pronalazi se odgovarajući feature u lookup tabeli
+   - Izvlači se display vrednost iz Value polja
+3. Display vrednost se upisuje u exportovani Shapefile
+
+KOD IMPLEMENTACIJA:
+-------------------
+
+```python
+def get_display_value(self, layer, feature, field_name):
+    """Get display value for a field"""
+    field_idx = layer.fields().indexFromName(field_name)
+    widget_setup = layer.editorWidgetSetup(field_idx)
+    widget_type = widget_setup.type()
+    
+    if widget_type == 'ValueRelation':
+        config = widget_setup.config()
+        relation_layer_id = config.get('Layer')
+        key_field = config.get('Key')
+        value_field = config.get('Value')
+        
+        relation_layer = QgsProject.instance().mapLayer(relation_layer_id)
+        key_value = feature[field_name]
+        
+        # Find matching feature in lookup table
+        request = QgsFeatureRequest().setFilterExpression(
+            f'"{key_field}" = \'{key_value}\''
+        )
+        for rel_feature in relation_layer.getFeatures(request):
+            return rel_feature[value_field]
+    
+    return feature[field_name]
+
+def convert_feature_to_display_values(self, layer, feature):
+    """Convert all fields to display values"""
+    new_feature = QgsFeature(feature)
+    
+    # Explicitly copy geometry
+    if feature.hasGeometry():
+        new_feature.setGeometry(feature.geometry())
+    
+    for field_idx, field in enumerate(layer.fields()):
+        display_value = self.get_display_value(layer, feature, field.name())
+        new_feature.setAttribute(field_idx, display_value)
+    return new_feature
+
+VAŽNO: Kada se kreiraju feature-i za memory layer, mora se:
+1. Kreirati feature sa memory_layer.fields()
+2. Eksplicitno kopirati geometriju: new_feature.setGeometry(feature.geometry())
+3. Postaviti atribute po imenu polja: new_feature.setAttribute(field_name, value)
+```
+
+PRIMER:
+-------
+
+**Pre konverzije (PostgreSQL):**
+```
+ART: 123
+BAUART: 456
+STATUS: 789
+```
+
+**Posle konverzije (Shapefile):**
+```
+ART: "Kabelschacht"
+BAUART: "Neubau"
+STATUS: "Aktiv"
+```
+
+PRIMENA NA SVE SLOJEVE:
+------------------------
+
+Ova funkcionalnost se primenjuje na:
+✓ BAUTEN (Sonstiges)
+✓ BAUTEN (OTHER)
+✓ Može se lako primeniti na sve ostale slojeve
+
+PREDNOSTI:
+----------
+
+✓ **Human-readable export** - tekst umesto ID-eva
+✓ **Automatska konverzija** - nema potrebe za ručnim mapiranjem
+✓ **Koristi QGIS konfiguraciju** - poštuje postojeće Value Relations
+✓ **Transparentno** - radi za sva polja sa Value Relations
+✓ **Univerzalno** - može se primeniti na bilo koji sloj
+
+OGRANIČENJA:
+------------
+
+- Radi samo za polja sa ValueRelation editor widget tipom
+- Lookup tabela mora biti učitana u QGIS projekat
+- Sporije od direktnog exporta (dodatni upiti za svako polje)
+
+TESTIRANJE:
+-----------
+
+1. Otvori BAUTEN sloj u QGIS-u
+2. Proveri koja polja imaju Value Relations (npr. ART, BAUART)
+3. Exportuj sa plugin-om
+4. Otvori exportovani Shapefile
+5. Proveri da su vrednosti tekstualne, ne ID-evi
+
+NAPOMENE:
+---------
+
+- Originalni PostgreSQL sloj ostaje netaknut
+- Konverzija se vrši samo u memory layer-u pre exporta
+- Ako lookup vrednost ne postoji, vraća se originalna ID vrednost
+- Funkcionalnost radi za sve tipove polja (string, integer, etc.)
+
+BUDUĆA PROŠIRENJA:
+------------------
+
+- Primeniti na sve export metode (PUNKT, ROHRMUFFE, MESSPUNKT, etc.)
+- Dodati opciju da korisnik bira da li želi ID ili display vrednosti
+- Cache-ovanje lookup tabela za bolju performansu
+- Podrška za druge widget tipove (ValueMap, etc.)
